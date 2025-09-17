@@ -1,0 +1,16 @@
+# Ignore everything downloaded
+calendar/
+equipos/
+formaciones/
+jefes/
+market/
+players/
+current_week.json
+
+# passwords
+.env
+
+# logs
+log.log
+
+.DS_Store
