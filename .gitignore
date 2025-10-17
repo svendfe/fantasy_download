@@ -5,12 +5,14 @@ formaciones/
 jefes/
 market/
 players/
+scrapper/
 current_week.json
+rules.txt
+
 
 # passwords
 .env
 
 # logs
 log.log
-
 .DS_Store

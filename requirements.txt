@@ -1,2 +1,12 @@
 python-dotenv
 requests
+json
+typing
+dataclasses
+datetime
+pathlib
+functools
+re
+pathlib
+typing
+bs4
