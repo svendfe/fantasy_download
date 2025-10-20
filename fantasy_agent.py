@@ -34,6 +34,7 @@ class ScrapedPlayerData:
             return 0.7  # Neutral default
         
         risk_map = {
+            "Ironman": 1.3,
             "Bajo": 1.0,
             "Medio": 0.5,
             "Alto": 0.1
@@ -126,7 +127,7 @@ class Player:
     
     def minutes_reliability(self) -> float:
         if not self.minutes_last_3:
-            return 1.0
+            return 0.5
         avg_mins = sum(self.minutes_last_3) / len(self.minutes_last_3)
         return min(avg_mins / 90.0, 1.0)
     
@@ -253,7 +254,7 @@ class ScraperManager:
         return player
     
     def enrich_players_batch(self, players: List[Player], 
-                            max_to_scrape: int = 50) -> List[Player]:
+                            max_to_scrape: int = 1000) -> List[Player]:
         """
         Enrich multiple players with rate limiting.
         Only scrapes top candidates to avoid overwhelming the server.
@@ -289,7 +290,6 @@ class PlayerMapper:
 # ============================================================================
 # DATA LOADER
 # ============================================================================
-
 class DataLoader:
     """Loads data from local JSON files"""
     
@@ -418,7 +418,8 @@ class DataLoader:
                 
                 if player_id in all_players:
                     player = all_players[player_id]
-                    player.is_on_market = True
+                    if market_entry.get('discr') != "marketPlayerTeam":
+                        player.is_on_market = True
                     player.sale_price = market_entry.get('salePrice')
         
         if self.equipos_dir.exists():
@@ -448,7 +449,16 @@ class DataLoader:
         
         return list(all_players.values())
 
+    def load_current_week(self) -> int:
 
+        file_path = list(self.data_dir.glob("current_week.json"))[0]
+        if not file_path:
+            raise FileNotFoundError("No file matching current_week.json found in data_dir")
+        
+        with open(file_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        return data['weekNumber']
 # ============================================================================
 # FIXTURE ANALYZER
 # ============================================================================
@@ -461,6 +471,7 @@ class FixtureAnalyzer:
         self.team_strengths = self._calculate_team_strengths(historical_weeks or [])
     
     def _calculate_team_strengths(self, past_weeks: List[int]) -> Dict[str, Dict]:
+        # TODO calculate strength based on last x weeks results
         strengths = {
             "Real Madrid": {"attack": 5.0, "defense": 4.5},
             "FC Barcelona": {"attack": 4.8, "defense": 4.2},
@@ -532,7 +543,6 @@ class FixtureAnalyzer:
         weighted_avg = sum(s * w for s, w in zip(scores, weights)) / sum(weights)
         return weighted_avg
 
-
 # ============================================================================
 # ENHANCED PLAYER EVALUATOR
 # ============================================================================
@@ -580,19 +590,19 @@ class EnhancedPlayerEvaluator:
         value_raw = ppg_raw / max(player.price_in_millions(), 0.1)
         value_score = min(value_raw / 2.0, 1.0) * 10
         
-        # 5. Jerarquía (15%) - NEW!
+        # 5. Jerarquía (15%)
         if player.scraped_data and player.scraped_data.jerarquia:
             jerarquia_score = player.scraped_data.get_jerarquia_score() * 15
         else:
             jerarquia_score = 7.5  # Neutral default
         
-        # 6. Play Probability (10%) - NEW!
+        # 6. Play Probability (10%)
         if player.scraped_data and player.scraped_data.play_probability:
             probability_score = player.scraped_data.play_probability * 10
         else:
             probability_score = 7.0  # Assume likely to play
         
-        # 7. Injury Risk (5%) - NEW!
+        # 7. Injury Risk (5%)
         if player.scraped_data and player.scraped_data.injury_risk:
             injury_score = player.scraped_data.get_injury_risk_score() * 5
         else:
@@ -610,8 +620,8 @@ class EnhancedPlayerEvaluator:
             total_score *= 0.5
         
         # Position multiplier
-        position_mult = {1: 0.85, 2: 1.05, 3: 1.20, 4: 1.10, 5: 0.0}
-        total_score *= position_mult.get(player.position_id, 1.0)
+        #position_mult = {1: 0.85, 2: 1.05, 3: 1.20, 4: 1.10, 5: 0.0}
+        #total_score *= position_mult.get(player.position_id, 1.0)
         
         return {
             'total_score': total_score,
@@ -628,7 +638,6 @@ class EnhancedPlayerEvaluator:
             'injury_score': injury_score,
             'minutes_reliability': player.minutes_reliability(),
             'is_available': player.is_available(),
-            # Include scraped data for display
             'scraped_jerarquia': player.scraped_data.jerarquia if player.scraped_data else None,
             'scraped_probability': player.scraped_data.play_probability if player.scraped_data else None,
             'scraped_form_arrow': player.scraped_data.form_arrow if player.scraped_data else None,
@@ -659,8 +668,8 @@ class EnhancedPlayerEvaluator:
             
             # Find better players
             candidates = [p for p in available_players 
-                         if p.position_id == current_player.position_id
-                         and p.id not in [cp.id for cp in current_team.players]
+                         #if p.position_id == current_player.position_id
+                         if p.id not in [cp.id for cp in current_team.players]
                          and p.is_available()
                          and p.is_transferable(current_time)]
             
@@ -713,7 +722,7 @@ class EnhancedFantasyAgent:
     def __init__(self, data_dir: str = "."):
         self.loader = DataLoader(data_dir)
         self.scraper_manager = ScraperManager()
-        self.current_week = 9
+        self.current_week = -1
         self.my_team = None
         self.all_players = []
         self.fixture_analyzer = None
@@ -724,6 +733,8 @@ class EnhancedFantasyAgent:
         print("🤖 Initializing Enhanced Fantasy Agent...")
         print("="*60)
         
+        self.current_week = self.loader.load_current_week()
+
         self.my_team = self.loader.load_my_team(team_name)
         if not self.my_team:
             print("❌ Could not load your team!")
@@ -822,8 +833,8 @@ class EnhancedFantasyAgent:
             if player.position_id in candidates_by_position:
                 # Quick budget filter
                 acq_cost = player.get_acquisition_cost()
-                if acq_cost < budget + 20:  # Allow some flexibility
-                    candidates_by_position[player.position_id].append(player)
+                #if acq_cost < budget + 20:  # Allow some flexibility
+                candidates_by_position[player.position_id].append(player)
         
         # Sort each position by average points and take top candidates
         for pos in candidates_by_position:
@@ -838,7 +849,7 @@ class EnhancedFantasyAgent:
         print(f"   - Filtered to {len(top_candidates)} top candidates")
         
         if enrich_candidates and top_candidates:
-            self.scraper_manager.enrich_players_batch(top_candidates, max_to_scrape=50)
+            self.scraper_manager.enrich_players_batch(top_candidates)
         
         # Find best transfers
         suggestions = self.evaluator.find_best_transfers(
@@ -1001,7 +1012,7 @@ if __name__ == "__main__":
     agent = EnhancedFantasyAgent(data_dir=".")
     
     # Load and enrich your team
-    if agent.initialize(team_name="floricerdo perz", enrich_current_team=True):
+    if agent.initialize(team_name="svendsinio", enrich_current_team=True):
         
         # Analyze current team with web data
         agent.analyze_current_team()

@@ -77,11 +77,11 @@ class FantasyScraper:
         JERARQUIA_MAP = {
             "Dios": 1,
             "Clave": 2,
-            "Importantes": 3,
-            "Rotacion": 4,
-            "Revulsivos": 5,
-            "Reservas": 6,
-            "Descartes": 7,
+            "Importante": 3,
+            "Rotación": 4,
+            "Revulsivo": 5,
+            "Reserva": 6,
+            "Descarte": 7,
         }
         mapped_value = JERARQUIA_MAP.get(text)
         return mapped_value
@@ -93,7 +93,7 @@ class FantasyScraper:
         """
         probabilities = []
         
-        for element in soup.find_all('span', class_=re.compile(r'\bprob-(\d+)\b')):
+        for element in soup.find_all('span', class_=re.compile(r'\bprob-(\d+)')):
             text = element.get_text(strip=True)
             prob = self._parse_percentage(text)
             if prob is not None:
@@ -177,7 +177,7 @@ class FantasyScraper:
 
 
 def main():
-    scraper = FantasyScraper("lamine-yamal")
+    scraper = FantasyScraper("raul-asencio-1")
     player_info = scraper.get_player_info()
     print(json.dumps(player_info, indent=2, ensure_ascii=False))
 
