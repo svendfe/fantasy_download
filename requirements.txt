@@ -10,3 +10,4 @@ re
 pathlib
 typing
 bs4
+dotenv
