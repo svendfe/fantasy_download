@@ -1,6 +1,3 @@
-Here is a comprehensive README file for your project, based on the files you provided.
-
------
 
 # La Liga Fantasy Agent 🤖
 
