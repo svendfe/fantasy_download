@@ -17,6 +17,7 @@ URLS = {
     "all_players": "https://api-fantasy.llt-services.com/api/v3/players?x-lang=en",
     "current_week": "https://api-fantasy.llt-services.com/api/v3/week/current?x-lang=en",
     "jefes": "https://api-fantasy.llt-services.com/api/v5/leagues/016644922/ranking?x-lang=en",
+    "calendar": "https://api-fantasy.llt-services.com/api/v3/calendar?weekNumber="
 }
 
 # Helper Functions
@@ -62,7 +63,6 @@ def get_autorization_headers() -> Dict[str, str]:
 
     return {"Authorization": f"Bearer {access_token}"}
 
-# Download Functions
 def download_current_market(headers: Dict[str, str]):
     """Download current market data."""
     logger.info("Downloading current market data...")
@@ -128,22 +128,57 @@ def download_current_week(headers: Dict[str, str]):
     """Download current week data."""
     logger.info("Downloading current week data...")
     data = make_request("GET", URLS["current_week"], headers=headers)
+    current_week = data.get("weekNumber")
     with open(f"current_week.json", "w", encoding="utf-8") as f:
         json.dump(data, f, indent=4)
     logger.info("Current week data saved to current_week.json")
+    download_current_calendar(headers, current_week)
+
+def download_current_calendar(headers: Dict[str, str], download_week_num):
+    """Download current calendar data."""
+    logger.info("Downloading current calendar data...")
+    call_path = f"{URLS['calendar']}{download_week_num}&x-lang=en"
+    data = make_request("GET", call_path, headers=headers)
+    ensure_directory_exists("calendar")
+    with open(f"calendar/week_{download_week_num}.json", "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=4)
+
+    logger.info(f"Data for week {download_week_num} saved to calendar/week_{download_week_num}.json")
+
+def download_check():
+    #TODO check market time
+    """Check if we have already downloaded the data today"""
+    #check random directory latest date
+    from pathlib import Path
+    directory = Path("market")
+    if not directory.exists():return True
+
+    files = sorted(directory.glob("*.json"), reverse=True)
+    if not files: return True        
+    latest = files[0].name
+    date_str = latest.split("_")[1].split(".")[0]
+
+    current_date = datetime.now().strftime("%Y%m%d")
+    if current_date == date_str: return False
+    return True
 
 # Main Function
 def main():
-    logger.info("Starting the download pipeline...")
-    try:
-        headers = get_autorization_headers()
-        download_current_week(headers)
-        download_current_market(headers)
-        download_all_players(headers)
-        download_all_teams(headers)
-        logger.info("Download pipeline completed successfully.")
-    except Exception as e:
-        logger.error(f"An error occurred: {e}")
+    load_data_check = download_check()
+    if load_data_check:
+        logger.info("Starting the download pipeline...")
+        try:
+            headers = get_autorization_headers()
+            download_current_week(headers)
+            download_current_market(headers)
+            download_all_players(headers)
+            download_all_teams(headers)
+            logger.info("Download pipeline completed successfully.")
+        except Exception as e:
+            logger.error(f"An error occurred: {e}")
+    else: 
+        logger.info("We already have todays data downlaoded...")
 
 if __name__ == "__main__":
+    #print(download_check())
     main()

@@ -51,7 +51,6 @@ class ScrapedPlayerData:
             return 0.5
         return 5.0 - (self.form_arrow / 5.0)
 
-
 @dataclass
 class Player:
     """Player model with stats and market information"""
@@ -150,7 +149,6 @@ class Player:
             
         return float('inf')
 
-
 @dataclass
 class Fixture:
     """Match fixture information"""
@@ -163,7 +161,6 @@ class Fixture:
     home_score: Optional[int] = None
     away_score: Optional[int] = None
     match_state: int = 0
-
 
 @dataclass
 class Team:
@@ -185,7 +182,6 @@ class Team:
         if self.team_money is None:
             return 0.0
         return self.team_money / 1_000_000
-
 
 # ============================================================================
 # UTILITIES

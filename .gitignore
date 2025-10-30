@@ -16,3 +16,7 @@ rules.txt
 # logs
 log.log
 .DS_Store
+
+#cache and test
+__pycache__/
+.vscode/
