@@ -235,7 +235,7 @@ class ScraperManager:
                 jerarquia=jerarquia,
                 play_probability=data.get('probabilities'),
                 form_arrow=data.get('arrow_numbers'),
-                injury_risk=data.get('rs_cuadros_phone')
+                injury_risk=data.get('riesgo_lesion')
             )
             
         except Exception as e:
@@ -873,7 +873,7 @@ class FantasyAgent:
         enrich_current_team: bool = True
     ) -> Optional[Dict]:
         """Initialize agent with data from files"""
-        print("🤖 Initializing Fantasy Agent...")
+        print("Initializing Fantasy Agent...")
         print("=" * 60)
         
         try:
@@ -889,19 +889,12 @@ class FantasyAgent:
             print("❌ Could not load team! Check 'equipos' directory.")
             return None
         
-        print(f"✅ Loaded team: {self.my_team.manager_name}")
-        print(f"   Players: {len(self.my_team.players)}")
-        print(f"   Team Value: €{self.my_team.total_value_millions():.1f}M")
-        print(f"   Budget: €{self.my_team.budget_millions():.1f}M")
-        
         if enrich_current_team:
-            print(f"\n🔍 Enriching team with web data...")
             for player in self.my_team.players:
                 self.scraper_manager.enrich_player(player)
         
         self.all_players = self.loader.load_all_players()
-        print(f"\n✅ Loaded {len(self.all_players)} total players")
-        
+
         fixtures = self.loader.load_calendar(self.current_week)
         self.fixture_analyzer = FixtureAnalyzer(fixtures)
         self.evaluator = PlayerEvaluator(self.fixture_analyzer)
